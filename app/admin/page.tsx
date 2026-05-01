@@ -23,12 +23,20 @@ export default function AdminPage() {
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  const [authError, setAuthError] = useState<string | null>(null);
+
   // Check for saved auth
   useEffect(() => {
     const saved = sessionStorage.getItem("360tv_admin_secret");
     if (saved) {
       setSecret(saved);
-      setIsAuthed(true);
+      // Verify saved token against API quietly
+      fetch("/api/admin/sync-logs", {
+        headers: { "x-admin-secret": saved },
+      }).then(res => {
+        if (res.ok) setIsAuthed(true);
+        else sessionStorage.removeItem("360tv_admin_secret");
+      });
     }
   }, []);
 
@@ -37,11 +45,25 @@ export default function AdminPage() {
     if (isAuthed) fetchLogs();
   }, [isAuthed]);
 
-  function handleAuth(e: React.FormEvent) {
+  async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
+    setAuthError(null);
+
     if (secret.trim()) {
-      sessionStorage.setItem("360tv_admin_secret", secret);
-      setIsAuthed(true);
+      try {
+        const res = await fetch("/api/admin/sync-logs", {
+          headers: { "x-admin-secret": secret },
+        });
+
+        if (res.ok) {
+          sessionStorage.setItem("360tv_admin_secret", secret);
+          setIsAuthed(true);
+        } else {
+          setAuthError("Incorrect password. Please try again");
+        }
+      } catch (err) {
+        setAuthError("Network error attempting delivery");
+      }
     }
   }
 
@@ -99,15 +121,17 @@ export default function AdminPage() {
               type="password"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
-              placeholder="Enter admin secret"
-              className="w-full px-4 py-3 rounded-lg bg-brand-navy-deep border border-white/[0.08] text-brand-white placeholder-brand-offwhite-dim/40 focus:outline-none focus:border-brand-navy-light text-sm"
-              autoFocus
+              placeholder="Enter Password"
+              className="w-full bg-brand-navy border border-white/[0.1] rounded-lg px-4 py-3 text-brand-white focus:outline-none focus:border-brand-offwhite-dim transition-colors"
             />
+            {authError && (
+              <p className="text-accent-live text-sm">{authError}</p>
+            )}
             <button
               type="submit"
               className="w-full py-3 rounded-lg bg-brand-navy-light text-brand-white font-medium hover:bg-brand-navy-mid transition-colors text-sm"
             >
-              Authenticate
+              Login
             </button>
           </form>
         </div>
@@ -225,15 +249,14 @@ export default function AdminPage() {
                     </td>
                     <td className="py-2.5 pr-4">
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          log.status === "COMPLETED"
-                            ? "bg-accent-cricket/15 text-accent-cricket"
-                            : log.status === "FAILED"
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${log.status === "COMPLETED"
+                          ? "bg-accent-cricket/15 text-accent-cricket"
+                          : log.status === "FAILED"
                             ? "bg-accent-live/15 text-accent-live"
                             : log.status === "RUNNING"
-                            ? "bg-accent-upcoming/15 text-accent-upcoming"
-                            : "bg-accent-past/15 text-accent-past"
-                        }`}
+                              ? "bg-accent-upcoming/15 text-accent-upcoming"
+                              : "bg-accent-past/15 text-accent-past"
+                          }`}
                       >
                         {log.status as string}
                       </span>
