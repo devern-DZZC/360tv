@@ -1,7 +1,7 @@
 // GET /api/cron/sync-youtube — Triggered by Vercel Cron
 import { type NextRequest } from 'next/server';
 import { runSync } from '@/lib/services/sync-service';
-import { revalidateTag } from 'next/cache';
+import { revalidateTag, revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for sync
@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
   try {
     const result = await runSync({ trigger: 'CRON' });
 
-    // Invalidate cached stream data
+    // Invalidate cached stream data and the static homepage
     revalidateTag('streams', 'max');
+    revalidatePath('/');
 
     return Response.json(result);
   } catch (error) {

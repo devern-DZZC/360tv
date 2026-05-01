@@ -134,11 +134,15 @@ export async function getPastStreams(limit = 10) {
  * Priority: live streams first, then upcoming.
  */
 export async function getFeaturedStreams(limit = 3) {
-  const live = await getLiveStreams(limit);
-  if (live.length >= limit) return live;
+  let featured = await getLiveStreams(limit);
+  if (featured.length >= limit) return featured;
 
-  const upcoming = await getUpcomingStreams(limit - live.length);
-  return [...live, ...upcoming];
+  const upcoming = await getUpcomingStreams(limit - featured.length);
+  featured = [...featured, ...upcoming];
+  if (featured.length >= limit) return featured;
+
+  const past = await getPastStreams(limit - featured.length);
+  return [...featured, ...past];
 }
 
 /**

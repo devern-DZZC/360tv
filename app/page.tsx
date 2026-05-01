@@ -16,9 +16,10 @@ export default async function HomePage() {
     getPastStreams(4),
   ]);
 
-  // Don't show featured streams again in upcoming
+  // Don't show featured streams again in upcoming or past sections
   const featuredIds = new Set(featured.map((s) => s.id));
   const upcomingFiltered = upcoming.filter((s) => !featuredIds.has(s.id));
+  const pastFiltered = past.filter((s) => !featuredIds.has(s.id));
 
   return (
     <div>
@@ -34,15 +35,15 @@ export default async function HomePage() {
       )}
 
       {/* Recent Past Streams */}
-      {past.length > 0 && (
+      {pastFiltered.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <SectionHeader title="Recent Streams" href="/streams?status=past" />
-          <StreamGrid streams={past} />
+          <StreamGrid streams={pastFiltered} />
         </section>
       )}
 
       {/* CTA if everything is empty */}
-      {featured.length === 0 && upcomingFiltered.length === 0 && past.length === 0 && (
+      {featured.length === 0 && upcomingFiltered.length === 0 && pastFiltered.length === 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <div className="glass-surface rounded-2xl p-10 max-w-lg mx-auto animate-fade-in">
             <div className="w-12 h-12 rounded-full bg-brand-navy-light flex items-center justify-center mx-auto mb-4">
