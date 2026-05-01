@@ -1,0 +1,69 @@
+// 360tv Prisma Schema
+// Manages stream data synced from YouTube Data API v3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Stream {
+  id               String   @id @default(cuid())
+  youtubeVideoId   String   @unique
+  title            String
+  description      String?
+  thumbnailUrl     String
+  thumbnailHigh    String?
+  channelId        String
+  channelTitle     String
+
+  // Classification
+  status String @default("UPCOMING") // LIVE, UPCOMING, PAST, CANCELLED
+  sport  String @default("UNKNOWN")  // CRICKET, FOOTBALL, UNKNOWN
+
+  // YouTube liveStreamingDetails
+  scheduledStartTime DateTime?
+  actualStartTime    DateTime?
+  actualEndTime      DateTime?
+  liveBroadcastContent String? // "live", "upcoming", "none"
+
+  // Metadata
+  duration          String?
+  viewCount         Int?
+  likeCount         Int?
+  concurrentViewers Int?
+
+  // System fields
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([sport])
+  @@index([status, sport])
+  @@index([scheduledStartTime])
+  @@index([actualStartTime])
+  @@index([actualEndTime])
+  @@index([status, scheduledStartTime])
+  @@index([createdAt])
+}
+
+model SyncLog {
+  id           String   @id @default(cuid())
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  status       String   @default("RUNNING") // RUNNING, COMPLETED, FAILED, PARTIAL
+  trigger      String   // CRON, MANUAL
+  totalFetched  Int     @default(0)
+  totalUpserted Int     @default(0)
+  totalErrors   Int     @default(0)
+  errorDetails  String?
+  durationMs    Int?
+  quotaUsed     Int?
+
+  @@index([startedAt])
+  @@index([status])
+}

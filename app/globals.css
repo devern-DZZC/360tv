@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  /* Brand Colors */
+  --brand-navy: #1a2456;
+  --brand-navy-deep: #0f1634;
+  --brand-navy-light: #2a3a7c;
+  --brand-navy-mid: #1e2d6a;
+  --brand-white: #ffffff;
+  --brand-offwhite: #e8ecf4;
+  --brand-offwhite-dim: #b0b8d0;
+
+  /* Status Colors */
+  --accent-live: #ef4444;
+  --accent-live-glow: rgba(239, 68, 68, 0.4);
+  --accent-upcoming: #f59e0b;
+  --accent-past: #6b7280;
+
+  /* Sport Colors */
+  --accent-cricket: #22c55e;
+  --accent-football: #3b82f6;
+
+  /* Surfaces */
+  --surface-glass: rgba(255, 255, 255, 0.04);
+  --surface-glass-hover: rgba(255, 255, 255, 0.08);
+  --surface-glass-border: rgba(255, 255, 255, 0.08);
+  --surface-card: rgba(26, 36, 86, 0.6);
+
+  /* Backgrounds */
+  --background: var(--brand-navy-deep);
+  --foreground: var(--brand-white);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-deep: var(--brand-navy-deep);
+  --color-brand-navy-light: var(--brand-navy-light);
+  --color-brand-navy-mid: var(--brand-navy-mid);
+  --color-brand-white: var(--brand-white);
+  --color-brand-offwhite: var(--brand-offwhite);
+  --color-brand-offwhite-dim: var(--brand-offwhite-dim);
+  --color-accent-live: var(--accent-live);
+  --color-accent-upcoming: var(--accent-upcoming);
+  --color-accent-past: var(--accent-past);
+  --color-accent-cricket: var(--accent-cricket);
+  --color-accent-football: var(--accent-football);
+  --color-surface-glass: var(--surface-glass);
+  --color-surface-glass-hover: var(--surface-glass-hover);
+  --color-surface-card: var(--surface-card);
+
+  --font-display: 'Oswald', sans-serif;
+  --font-body: 'Source Sans 3', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Global Styles */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle background texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(42, 58, 124, 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(42, 58, 124, 0.25) 0%, transparent 50%),
+    var(--brand-navy-deep);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--brand-navy-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-navy-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4a9c;
+}
+
+/* Live pulse animation */
+@keyframes pulse-live {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Utility classes */
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out forwards;
+}
+
+.glass-surface {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-glass-border);
+  backdrop-filter: blur(12px);
+}
+
+.glass-surface:hover {
+  background: var(--surface-glass-hover);
+}
+
+/* Card hover effect */
+.stream-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.stream-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Live card accent */
+.stream-card-live {
+  border-left: 3px solid var(--accent-live);
+  box-shadow: 0 0 20px var(--accent-live-glow);
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-glass) 25%,
+    var(--surface-glass-hover) 50%,
+    var(--surface-glass) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
