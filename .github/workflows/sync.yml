@@ -1,5 +1,6 @@
 name: 5-Minute YouTube Sync
 on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
   schedule:
     - cron: '*/5 * * * *' # Runs every 5 minutes
 jobs:
