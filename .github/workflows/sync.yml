@@ -1,0 +1,12 @@
+name: 5-Minute YouTube Sync
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Runs every 5 minutes
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Vercel API
+        run: |
+          curl -X GET "https://360tv.vercel.app/api/cron/sync-youtube" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
