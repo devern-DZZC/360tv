@@ -2,12 +2,12 @@ name: 5-Minute YouTube Sync
 on:
   workflow_dispatch: # Allows manual trigger from GitHub UI
   schedule:
-    - cron: '0 * * * *' # Runs at minute 0 past every hour
+    - cron: '*/5 * * * *' # Runs every 5 minutes
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Vercel API
         run: |
-          curl -X GET "https://360tv.vercel.app/api/cron/sync-youtube" \
+          curl -X GET "https://360tv.vercel.app/api/cron/check-rss" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

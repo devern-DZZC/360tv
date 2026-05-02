@@ -12,7 +12,7 @@ export type Sport = 'CRICKET' | 'FOOTBALL' | 'UNKNOWN';
 export type SyncStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PARTIAL';
 
 // Sync trigger enum
-export type SyncTrigger = 'CRON' | 'MANUAL';
+export type SyncTrigger = 'CRON' | 'MANUAL' | 'CRON_RSS';
 
 // ---- API Request Types ----
 

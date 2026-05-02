@@ -12,6 +12,7 @@ import {
   getSessionQuotaUsed,
   resetSessionQuota,
 } from '@/lib/services/youtube-service';
+import { fetchChannelRSS } from '@/lib/services/rss-service';
 import { classifyStream } from '@/lib/classification';
 import { detectSport } from '@/lib/sport-detection';
 import { SYNC_LOCK_TIMEOUT_MINUTES } from '@/lib/constants';
@@ -316,4 +317,46 @@ export async function getSyncLogs(limit = 20) {
     orderBy: { startedAt: 'desc' },
     take: limit,
   });
+}
+
+/**
+ * Detect if there have been any changes on the YouTube channel
+ * using the zero-quota RSS feed trick.
+ */
+export async function detectFeedChanges(channelId: string): Promise<{ changed: boolean; reason?: string }> {
+  const rssVideos = await fetchChannelRSS(channelId);
+  
+  if (rssVideos.length === 0) {
+    return { changed: false, reason: "RSS returned 0 videos" };
+  }
+
+  // Get all existing DB streams that match these IDs
+  const rssIds = rssVideos.map(v => v.videoId);
+  const existingStreams = await prisma.stream.findMany({
+    where: { youtubeVideoId: { in: rssIds } },
+    select: { youtubeVideoId: true, lastSyncedAt: true, status: true },
+  });
+
+  const existingMap = new Map(existingStreams.map(s => [s.youtubeVideoId, s]));
+
+  for (const video of rssVideos) {
+    const existing = existingMap.get(video.videoId);
+    
+    // Condition 1: We've never seen this video ID before
+    if (!existing) {
+      return { changed: true, reason: `New video ID detected: ${video.videoId}` };
+    }
+
+    // Condition 2: The video's updated timestamp in RSS is newer than our last DB sync
+    if (video.updated > existing.lastSyncedAt) {
+      return { changed: true, reason: `Video ${video.videoId} timestamp updated` };
+    }
+    
+    // Condition 3: Missing/Orphan checks - if the status is UNKNOWN but exists
+    if (existing.status === 'UNKNOWN') {
+       return { changed: true, reason: `Video ${video.videoId} status is UNKNOWN requiring sync` };
+    }
+  }
+
+  return { changed: false, reason: "No new timestamps or video IDs found" };
 }
