@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 
 const VALID_STATUSES = ['LIVE', 'UPCOMING', 'PAST', 'CANCELLED', 'all'];
 const VALID_SPORTS = ['CRICKET', 'FOOTBALL', 'UNKNOWN', 'all'];
-const VALID_SORTS = ['newest', 'oldest', 'starting_soon'];
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,8 +16,8 @@ export async function GET(request: NextRequest) {
     const statusParam = (searchParams.get('status') || 'all').toUpperCase();
     const sportParam = (searchParams.get('sport') || 'all').toUpperCase();
     const limitParam = parseInt(searchParams.get('limit') || '12', 10);
-    const cursor = searchParams.get('cursor') || undefined;
-    const sortParam = searchParams.get('sort') || undefined;
+    const pageParam = parseInt(searchParams.get('page') || '1', 10);
+    const searchQuery = searchParams.get('search') || undefined;
 
     const status = VALID_STATUSES.includes(statusParam)
       ? (statusParam.toLowerCase() === 'all' ? 'all' : statusParam as StreamStatus)
@@ -28,14 +27,11 @@ export async function GET(request: NextRequest) {
       ? (sportParam.toLowerCase() === 'all' ? 'all' : sportParam as Sport)
       : 'all';
 
-    const sort = sortParam && VALID_SORTS.includes(sortParam)
-      ? sortParam as 'newest' | 'oldest' | 'starting_soon'
-      : undefined;
-
     const limit = isNaN(limitParam) ? 12 : Math.min(Math.max(limitParam, 1), 50);
+    const page = isNaN(pageParam) ? 1 : Math.max(pageParam, 1);
 
     const [result, counts] = await Promise.all([
-      getStreams({ status, sport, limit, cursor, sort }),
+      getStreams({ status, sport, limit, page, searchQuery }),
       getStreamCounts(),
     ]);
 

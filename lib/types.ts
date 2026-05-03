@@ -20,8 +20,8 @@ export interface StreamsQueryParams {
   status?: StreamStatus | 'all';
   sport?: Sport | 'all';
   limit?: number;
-  cursor?: string;
-  sort?: 'newest' | 'oldest' | 'starting_soon';
+  page?: number;
+  searchQuery?: string;
 }
 
 // ---- API Response Types ----
@@ -52,9 +52,11 @@ export interface StreamResponse {
 
 export interface PaginationMeta {
   total: number;
-  limit: number;
-  nextCursor: string | null;
-  hasMore: boolean;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 }
 
 export interface StreamCountsResponse {
