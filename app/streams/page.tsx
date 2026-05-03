@@ -2,7 +2,9 @@ import { Suspense } from "react";
 import { getStreams, getStreamCounts } from "@/lib/services/stream-service";
 import StreamGrid from "@/components/streams/StreamGrid";
 import StreamFilters from "@/components/streams/StreamFilters";
-import StreamSkeleton from "@/components/streams/StreamSkeleton";
+import StreamsResultsSkeleton from "@/components/streams/StreamsResultsSkeleton";
+import SearchBar from "@/components/streams/SearchBar";
+import Pagination from "@/components/streams/Pagination";
 import type { StreamStatus, Sport } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -18,30 +20,37 @@ interface StreamsPageProps {
   searchParams: Promise<{
     status?: string;
     sport?: string;
-    cursor?: string;
+    search?: string;
+    page?: string;
   }>;
 }
 
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const params = await searchParams;
+  const counts = await getStreamCounts();
+  const resultsKey = `${params.status || "all"}:${params.sport || "all"}:${params.search || ""}:${params.page || "1"}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page header */}
-      <div className="mb-6">
+      <div className="mb-8 space-y-6">
         <h1 className="font-[family-name:var(--font-display)] text-2xl sm:text-3xl font-bold text-brand-white tracking-wide">
           All Streams
         </h1>
         <p className="text-brand-offwhite-dim text-sm mt-1">
           Browse live, upcoming, and past cricket & football streams
         </p>
+
+        <SearchBar />
+        <StreamFilters counts={counts} />
       </div>
 
-      <Suspense fallback={<StreamSkeleton count={8} />}>
+      <Suspense key={resultsKey} fallback={<StreamsResultsSkeleton />}>
         <StreamsContent
           statusParam={params.status}
           sportParam={params.sport}
-          cursorParam={params.cursor}
+          searchParam={params.search}
+          pageParam={params.page}
         />
       </Suspense>
     </div>
@@ -51,74 +60,59 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 async function StreamsContent({
   statusParam,
   sportParam,
-  cursorParam,
+  searchParam,
+  pageParam,
 }: {
   statusParam?: string;
   sportParam?: string;
-  cursorParam?: string;
+  searchParam?: string;
+  pageParam?: string;
 }) {
-  const rawStatus = statusParam?.toUpperCase() || 'all';
-  const rawSport = sportParam?.toUpperCase() || 'all';
+  const rawStatus = statusParam?.toUpperCase() || "all";
+  const rawSport = sportParam?.toUpperCase() || "all";
+  const rawSearchQuery = searchParam?.trim() || "";
+  const rawPage = Number.parseInt(pageParam || "1", 10);
 
-  const validStatuses = ['LIVE', 'UPCOMING', 'PAST', 'CANCELLED'];
-  const validSports = ['CRICKET', 'FOOTBALL', 'UNKNOWN'];
+  const validStatuses = ["LIVE", "UPCOMING", "PAST", "CANCELLED"];
+  const validSports = ["CRICKET", "FOOTBALL", "UNKNOWN"];
 
-  const status: StreamStatus | 'all' = validStatuses.includes(rawStatus)
+  const status: StreamStatus | "all" = validStatuses.includes(rawStatus)
     ? (rawStatus as StreamStatus)
-    : 'all';
-  const sport: Sport | 'all' = validSports.includes(rawSport)
+    : "all";
+  const sport: Sport | "all" = validSports.includes(rawSport)
     ? (rawSport as Sport)
-    : 'all';
+    : "all";
+  const page = Number.isNaN(rawPage) ? 1 : Math.max(rawPage, 1);
 
-  const [result, counts] = await Promise.all([
-    getStreams({
-      status,
-      sport,
-      limit: 12,
-      cursor: cursorParam,
-    }),
-    getStreamCounts(),
-  ]);
+  const result = await getStreams({
+    status,
+    sport,
+    searchQuery: rawSearchQuery,
+    page,
+    limit: 12,
+  });
 
   const statusLabel =
     status && status !== "all" ? status.toLowerCase() : "";
   const sportLabel =
     sport && sport !== "all" ? sport.toLowerCase() : "";
-  const emptyMessage = `No ${sportLabel} ${statusLabel} streams found.`;
+  const emptyPrefix = rawSearchQuery ? "No matching" : "No";
+  const emptyMessage = `${emptyPrefix} ${sportLabel} ${statusLabel} streams found.`
+    .replace(/\s+/g, " ")
+    .trim();
 
   return (
     <div className="space-y-6">
-      <StreamFilters counts={counts} />
       <StreamGrid streams={result.data} emptyMessage={emptyMessage} />
-
-      {/* Load more */}
-      {result.meta.hasMore && result.meta.nextCursor && (
-        <div className="flex justify-center pt-4">
-          <a
-            href={`/streams?${new URLSearchParams({
-              ...(statusParam ? { status: statusParam } : {}),
-              ...(sportParam ? { sport: sportParam } : {}),
-              cursor: result.meta.nextCursor,
-            }).toString()}`}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-glass border border-white/[0.06] text-brand-offwhite hover:text-brand-white hover:bg-surface-glass-hover transition-all text-sm font-medium"
-          >
-            Load More
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </a>
-        </div>
-      )}
+      <Pagination
+        currentPage={result.meta.page}
+        totalPages={result.meta.totalPages}
+        totalItems={result.meta.total}
+        pageSize={result.meta.pageSize}
+        status={status}
+        sport={sport}
+        searchQuery={rawSearchQuery}
+      />
     </div>
   );
 }

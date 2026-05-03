@@ -25,7 +25,7 @@ export const CLIENT_REFRESH_INTERVAL_MS = 60000; // 60 seconds for live/upcoming
 
 // Sport Detection Keywords
 export const CRICKET_KEYWORDS = [
-  'cricket', 'test match', 't20', 'odi', 'ipl', 'cpl',
+  'cricket', 'test match', 't20', 'odi', 'ipl', 'cpl', 'ttcl', 'sscl',
   'world cup cricket', 'wicket', 'innings', 'over',
   'batsman', 'bowler', 'crease', 'bcci', 'cwi',
   'twenty20', 'one day', 'six', 'boundary', 'stumps',
@@ -33,7 +33,7 @@ export const CRICKET_KEYWORDS = [
 ];
 
 export const FOOTBALL_KEYWORDS = [
-  'football', 'soccer', 'fifa', 'premier league',
+  'football', 'soccer', 'fifa', 'premier league', 'ssfl',
   'la liga', 'champions league', 'goal', 'penalty',
   'halftime', 'half-time', 'match day', 'kickoff',
   'kick-off', 'offside', 'red card', 'yellow card',

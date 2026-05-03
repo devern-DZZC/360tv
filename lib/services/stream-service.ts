@@ -4,6 +4,7 @@
 // Used by both API routes and server components.
 // ============================================================
 
+import { Prisma, type Stream } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import type { StreamStatus, Sport, StreamCountsResponse } from '@/lib/types';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '@/lib/constants';
@@ -12,83 +13,126 @@ interface GetStreamsOptions {
   status?: StreamStatus | 'all';
   sport?: Sport | 'all';
   limit?: number;
-  cursor?: string;
-  sort?: 'newest' | 'oldest' | 'starting_soon';
+  page?: number;
+  searchQuery?: string;
 }
 
 /**
- * Get streams with filtering, sorting, and cursor-based pagination.
+ * Get streams with filtering, fuzzy title search, and page-based pagination.
+ *
+ * Ordering is fixed globally:
+ * 1. LIVE
+ * 2. UPCOMING (earliest scheduled first)
+ * 3. PAST (most recent first)
+ * 4. CANCELLED (kept last for completeness)
  */
 export async function getStreams(options: GetStreamsOptions = {}) {
   const {
     status = 'all',
     sport = 'all',
     limit: rawLimit = DEFAULT_PAGE_SIZE,
-    cursor,
-    sort,
+    page: rawPage = 1,
+    searchQuery,
   } = options;
 
   const limit = Math.min(Math.max(rawLimit, 1), MAX_PAGE_SIZE);
+  const requestedPage = Math.max(rawPage, 1);
+  const trimmedSearchQuery = searchQuery?.trim() || '';
 
-  // Build where clause
-  const where: any = {};
-  if (status && status !== 'all') {
-    where.status = status;
+  const conditions: Prisma.Sql[] = [];
+  if (status !== 'all') {
+    conditions.push(Prisma.sql`"status" = ${status}`);
   }
-  if (sport && sport !== 'all') {
-    where.sport = sport;
+  if (sport !== 'all') {
+    conditions.push(Prisma.sql`"sport" = ${sport}`);
   }
+  if (trimmedSearchQuery) {
+    const compactQuery = normalizeSearchQuery(trimmedSearchQuery);
+    const tokens = trimmedSearchQuery
+      .split(/\s+/)
+      .map(normalizeSearchQuery)
+      .filter(Boolean);
+    const normalizedTitle = Prisma.sql`regexp_replace(lower("title"), '[^a-z0-9]+', '', 'g')`;
+    const searchClauses: Prisma.Sql[] = [
+      Prisma.sql`"title" ILIKE ${`%${trimmedSearchQuery}%`}`,
+    ];
 
-  // Determine sort order
-  let orderBy: any;
-  const effectiveSort = sort || getDefaultSort(status);
-  switch (effectiveSort) {
-    case 'starting_soon':
-      orderBy = [{ scheduledStartTime: 'asc' }, { createdAt: 'desc' }];
-      break;
-    case 'oldest':
-      orderBy = [{ createdAt: 'asc' }];
-      break;
-    case 'newest':
-    default:
-      if (status === 'LIVE') {
-        orderBy = [{ actualStartTime: 'desc' }, { createdAt: 'desc' }];
-      } else if (status === 'UPCOMING') {
-        orderBy = [{ scheduledStartTime: 'asc' }, { createdAt: 'desc' }];
-      } else if (status === 'PAST') {
-        orderBy = [{ actualEndTime: 'desc' }, { createdAt: 'desc' }];
-      } else {
-        orderBy = [{ createdAt: 'desc' }];
-      }
-  }
+    if (compactQuery) {
+      searchClauses.push(
+        Prisma.sql`${normalizedTitle} LIKE ${`%${compactQuery}%`}`
+      );
+    }
 
-  const queryParams: any = {
-    where,
-    orderBy,
-    take: limit + 1, // Fetch one extra to check if there's more
-  };
+    const tokenMatchers = tokens.map((token) => Prisma.sql`${normalizedTitle} LIKE ${`%${token}%`}`);
+    if (tokenMatchers.length > 0) {
+      searchClauses.push(
+        Prisma.sql`(${Prisma.join(tokenMatchers, ' AND ')})`
+      );
+    }
 
-  if (cursor) {
-    queryParams.cursor = { id: cursor };
-    queryParams.skip = 1;
+    conditions.push(
+      Prisma.sql`(${Prisma.join(searchClauses, ' OR ')})`
+    );
   }
 
-  const [streams, total] = await Promise.all([
-    prisma.stream.findMany(queryParams),
-    prisma.stream.count({ where }),
-  ]);
+  const whereClause =
+    conditions.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+      : Prisma.empty;
 
-  const hasMore = streams.length > limit;
-  const data = hasMore ? streams.slice(0, limit) : streams;
-  const nextCursor = hasMore ? data[data.length - 1].id : null;
+  const countResult = await prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
+    SELECT COUNT(*)::int AS total
+    FROM "Stream"
+    ${whereClause}
+  `);
+
+  const total = countResult[0]?.total ?? 0;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+  const page = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
+
+  const data = await prisma.$queryRaw<Stream[]>(Prisma.sql`
+    SELECT *
+    FROM "Stream"
+    ${whereClause}
+    ORDER BY
+      CASE
+        WHEN COALESCE("actualStartTime", "actualEndTime", "scheduledStartTime") IS NULL THEN 1
+        ELSE 0
+      END ASC,
+      CASE
+        WHEN "status" = 'LIVE' THEN 0
+        WHEN "status" = 'UPCOMING' THEN 1
+        WHEN "status" = 'PAST' THEN 2
+        ELSE 3
+      END ASC,
+      CASE
+        WHEN "status" = 'LIVE' THEN COALESCE("actualStartTime", "scheduledStartTime", "createdAt")
+      END DESC NULLS LAST,
+      CASE
+        WHEN "status" = 'UPCOMING' THEN COALESCE("scheduledStartTime", "createdAt")
+      END ASC NULLS LAST,
+      CASE
+        WHEN "status" = 'PAST' THEN COALESCE("actualEndTime", "actualStartTime", "scheduledStartTime", "createdAt")
+      END DESC NULLS LAST,
+      CASE
+        WHEN "status" = 'CANCELLED' THEN COALESCE("scheduledStartTime", "createdAt")
+      END DESC NULLS LAST,
+      "createdAt" DESC,
+      "id" DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
 
   return {
     data,
     meta: {
       total,
-      limit,
-      nextCursor,
-      hasMore,
+      page,
+      pageSize: limit,
+      totalPages,
+      hasPreviousPage: page > 1,
+      hasNextPage: totalPages > 0 && page < totalPages,
     },
   };
 }
@@ -123,7 +167,10 @@ export async function getUpcomingStreams(limit = 10) {
 
 export async function getPastStreams(limit = 10) {
   return prisma.stream.findMany({
-    where: { status: 'PAST' },
+    where: {
+      status: 'PAST',
+      actualEndTime: { not: null },
+    },
     orderBy: { actualEndTime: 'desc' },
     take: limit,
   });
@@ -158,17 +205,10 @@ export async function getStreamCounts(): Promise<StreamCountsResponse> {
   return { live, upcoming, past };
 }
 
-/**
- * Default sort depends on the status filter.
- */
-function getDefaultSort(status?: StreamStatus | 'all'): string {
-  switch (status) {
-    case 'UPCOMING':
-      return 'starting_soon';
-    case 'LIVE':
-    case 'PAST':
-      return 'newest';
-    default:
-      return 'newest';
-  }
+function normalizeSearchQuery(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { StreamCountsResponse } from "@/lib/types";
 
@@ -9,6 +9,7 @@ interface StreamFiltersProps {
 }
 
 export default function StreamFilters({ counts }: StreamFiltersProps) {
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,9 +23,13 @@ export default function StreamFilters({ counts }: StreamFiltersProps) {
     } else {
       params.set(key, value);
     }
-    // Reset cursor when changing filters
-    params.delete("cursor");
-    router.push(`/streams?${params.toString()}`, { scroll: false });
+    // A new filter combination should always begin from page one.
+    params.delete("page");
+
+    const queryString = params.toString();
+    router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
   }
 
   const statusFilters = [
@@ -41,25 +46,25 @@ export default function StreamFilters({ counts }: StreamFiltersProps) {
   ];
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       {/* Status tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-surface-glass border border-white/[0.06]">
+      <div className="flex flex-wrap gap-1 rounded-2xl border border-white/[0.06] bg-surface-glass p-1.5 backdrop-blur-xl">
         {statusFilters.map(({ value, label, count }) => (
           <button
             key={value}
             onClick={() => updateParams("status", value)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+              "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-all",
               currentStatus === value
-                ? "bg-brand-navy-light text-brand-white shadow-sm"
-                : "text-brand-offwhite-dim hover:text-brand-white hover:bg-white/[0.03]"
+                ? "bg-brand-navy-light text-brand-white shadow-[0_10px_24px_rgba(15,22,52,0.3)]"
+                : "text-brand-offwhite-dim hover:bg-white/[0.03] hover:text-brand-white"
             )}
           >
             {label}
             {count > 0 && (
               <span
                 className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full font-semibold",
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
                   currentStatus === value
                     ? "bg-white/10 text-brand-white"
                     : "bg-white/5 text-brand-offwhite-dim"
@@ -73,16 +78,16 @@ export default function StreamFilters({ counts }: StreamFiltersProps) {
       </div>
 
       {/* Sport chips */}
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {sportFilters.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => updateParams("sport", value)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+              "rounded-full border px-3.5 py-2 text-xs font-medium transition-all",
               currentSport === value
-                ? "border-brand-navy-light bg-brand-navy-light text-brand-white"
-                : "border-white/[0.06] text-brand-offwhite-dim hover:text-brand-white hover:border-white/[0.12]"
+                ? "border-brand-navy-light bg-brand-navy-light text-brand-white shadow-[0_10px_24px_rgba(15,22,52,0.25)]"
+                : "border-white/[0.06] bg-white/[0.02] text-brand-offwhite-dim hover:border-white/[0.12] hover:text-brand-white"
             )}
           >
             {label}
